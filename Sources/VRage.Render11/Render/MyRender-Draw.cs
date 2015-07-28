@@ -87,7 +87,7 @@ namespace VRageRender
                 }
                 MyRender11.Log.DecreaseIndent();
 
-                throw e;
+                throw;
             }
         }
 

@@ -666,7 +666,7 @@ namespace Sandbox.Game.Entities
         public static void Close(MyEntity entity)
         {
             //Debug.Assert(!entity.Closed, "MarkForClose() is being called on close entity, use OnClose to prevent this call");
-
+            
             if (CloseAllowed)
             {
                 m_entitiesToDeleteNextFrame.Add(entity);
@@ -1754,10 +1754,6 @@ namespace Sandbox.Game.Entities
                     }
                 }
 
-            }
-            catch (System.Exception ex)
-            {
-                throw ex;
             }
             finally
             {

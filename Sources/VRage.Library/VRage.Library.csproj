@@ -121,6 +121,7 @@
     <Compile Include="Compression\MyZipArchiveReflection.cs" />
     <Compile Include="Compression\MyZipFileInfo.cs" />
     <Compile Include="Cryptography\MySHA256.cs" />
+    <Compile Include="Debugging\Logging.cs" />
     <Compile Include="DShow\DsControl.cs" />
     <Compile Include="DShow\DsCore.cs" />
     <Compile Include="DShow\DsExtend.cs" />

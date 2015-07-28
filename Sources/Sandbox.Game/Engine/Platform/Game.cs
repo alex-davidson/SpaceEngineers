@@ -16,6 +16,7 @@ using VRage;
 using VRage.Utils;
 using System.Net;
 using VRage.Library.Utils;
+using Logging = VRage.Library.Debugging.Logging;
 
 namespace Sandbox.Engine.Platform
 {
@@ -127,6 +128,7 @@ namespace Sandbox.Engine.Platform
 
         public void RunSingleFrame()
         {
+            Logging.Text("RunSingleFrame");
             UpdateInternal();
         }
 
