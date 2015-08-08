@@ -6,8 +6,11 @@ using System.Text;
 using SharpDX;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
+using SharpDX.DXGI;
+using SharpDX.Toolkit.Graphics;
 using VRage.Import;
-
+using VRage.Library.Debugging;
+using VRage.Render11.Debug;
 using VRageMath;
 using VRageMath.PackedVector;
 using VRageRender.Resources;
@@ -20,6 +23,9 @@ using BoundingFrustum = VRageMath.BoundingFrustum;
 using System.Diagnostics;
 using ParallelTasks;
 using System.Text.RegularExpressions;
+using Resource = SharpDX.Direct3D11.Resource;
+using Texture2D = SharpDX.Direct3D11.Texture2D;
+using Texture1D = SharpDX.Direct3D11.Texture1D;
 
 namespace VRageRender
 {
@@ -251,7 +257,21 @@ namespace VRageRender
                 MyImmediateRC.RC.Context.ClearUnorderedAccessView(m_prevLum.m_UAV, Int4.Zero);
                 m_resetEyeAdaptation = false;
             }
+
+            var log_prevLum = DebugDump.Read2D(m_prevLum);
+            var log_localLum = DebugDump.Read1D(m_localLum);
             avgLum = MyLuminanceAverage.Run(m_reduce0, m_reduce1, MyGBuffer.Main.Get(MyGbufferSlot.LBuffer), m_prevLum, m_localLum);
+
+            var log_avgLum = DebugDump.Read2D(avgLum);
+            Logging.Text("prevLum: {0}  localLum: {1}  avgLum: {2}", log_prevLum, log_localLum, log_avgLum);
+            
+            if(Single.IsInfinity(log_avgLum.X))
+            {
+                Environment.Exit(0);
+                DebugDump.DefineCapture("lbuffer", MyGBuffer.Main.Get(MyGbufferSlot.LBuffer), Format.R11G11B10_Float, new UnpackerR11G11B10()).Capture();
+                // uav3 stores final colors
+                DebugDump.FatalDumpAll();
+            }
 
             MyGpuProfiler.IC_EndBlock();
 

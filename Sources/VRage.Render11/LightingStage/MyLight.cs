@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using VRage.Library.Debugging;
 using VRageMath;
 using SharpDX;
 using Buffer = SharpDX.Direct3D11.Buffer;
@@ -421,7 +422,9 @@ namespace VRageRender
         internal static void WriteSpotlightConstants(LightId lid, ref SpotlightConstants data)
         {
             data.ApertureCos = Spotlights[lid.Index].ApertureCos;
+            Logging.Text("ApertureCos: {0}", data.ApertureCos);
             data.Range = Spotlights[lid.Index].Range;
+            Logging.Text("Range: {0}", data.Range);
             data.Color = Spotlights[lid.Index].Color;
             data.Direction = Spotlights[lid.Index].Direction;
             data.Up = Spotlights[lid.Index].Up;
