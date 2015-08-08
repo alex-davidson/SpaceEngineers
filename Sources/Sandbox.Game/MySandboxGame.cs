@@ -1102,13 +1102,13 @@ namespace Sandbox
             }
         }
 
-        private void InitModAPI()
+        public static void InitModAPI()
         {
             InitIlChecker();
             InitIlCompiler();
         }
 
-        private void InitIlCompiler()
+        private static void InitIlCompiler()
         {
             Log.IncreaseIndent();
             Func<string, string> getPath = (x) => Path.Combine(MyFileSystem.ExePath, x);

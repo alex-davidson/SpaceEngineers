@@ -33,7 +33,7 @@ namespace VRage.Compiler
         {
             Options = new System.CodeDom.Compiler.CompilerParameters(new string[] { "System.Xml.dll", "Sandbox.Game.dll", "Sandbox.Common.dll", "Sandbox.Graphics.dll", "VRage.dll", "VRage.Library.dll", "VRage.Math.dll","VRage.Game.dll", "System.Core.dll", "System.dll"/*, "Microsoft.CSharp.dll" */});
             Options.GenerateInMemory = true;
-            //Options.IncludeDebugInformation = true;
+            Options.IncludeDebugInformation = true;
         }
 
         public static string[] UpdateCompatibility(string[] files)
