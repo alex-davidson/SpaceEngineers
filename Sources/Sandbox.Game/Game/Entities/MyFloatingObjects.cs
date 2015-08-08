@@ -10,6 +10,7 @@ using Sandbox.Definitions;
 using Sandbox.Engine.Physics;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
+using VRage.Library.Debugging;
 using VRage.Utils;
 using VRageMath;
 
@@ -253,6 +254,7 @@ namespace Sandbox.Game.Entities
                             if (voxelMap.AreAllAabbCornersInside(ref worldMatrix, localAabb))
                             {
                                 floatingObjectToCheck.NumberOfFramesInsideVoxel++;
+                                Logging.Text("Object in voxel: {0} ,   frames = {1}", floatingObjectToCheck.EntityId, floatingObjectToCheck.NumberOfFramesInsideVoxel);
 
                                 if (floatingObjectToCheck.NumberOfFramesInsideVoxel > MyFloatingObject.NUMBER_OF_FRAMES_INSIDE_VOXEL_TO_REMOVE)
                                 {
@@ -263,6 +265,7 @@ namespace Sandbox.Game.Entities
                             }
                             else
                             {
+                                Logging.Text("Object not in voxel: {0}", floatingObjectToCheck.EntityId);
                                 floatingObjectToCheck.NumberOfFramesInsideVoxel = 0;
                             }
                         }
@@ -473,6 +476,7 @@ namespace Sandbox.Game.Entities
         /// <param name="amount">MyFixedPoint.MaxValue to remove object</param>
         internal static void RemoveFloatingObject(MyFloatingObject obj, MyFixedPoint amount)
         {
+            Logging.Text("RemoveFloatingObject: {0}", obj.EntityId);
             if (amount <= 0)
             {
                 Debug.Fail("RemoveFloatingObject, amount must be > 0");
@@ -497,6 +501,7 @@ namespace Sandbox.Game.Entities
         public static void ReduceFloatingObjects()
         {
             var count = m_floatingOres.Count + m_floatingItems.Count;
+            var initial = count;
             int minFloatingOres = Math.Max(MySession.Static.MaxFloatingObjects / 5, 4);
             while (count > MySession.Static.MaxFloatingObjects)
             {
@@ -514,6 +519,7 @@ namespace Sandbox.Game.Entities
                 }
                 --count;
             }
+            Logging.Text("ReduceFloatingObjects: {0} -> {1}", initial, count);
         }
 
         #endregion

@@ -123,17 +123,20 @@ namespace Sandbox.Game.Entities
                     if (value == 0)
                     {
                         m_entityId = null;
+                        Logging.Text("RemoveEntity: {0}  {1}", oldVal, GetType().FullName);
                         MyEntityIdentifier.RemoveEntity(oldVal);
                     }
                     else
                     {
                         m_entityId = value;
+                        Logging.Text("SwapRegisteredEntityId: {0} -> {1}  {2}", oldVal, value, GetType().FullName);
                         MyEntityIdentifier.SwapRegisteredEntityId(this, oldVal, m_entityId.Value);
                     }
                 }
                 else
                 {
                     m_entityId = value;
+                    Logging.Text("AddEntityWithId: {0}  {1}", value, GetType().FullName);
                     MyEntityIdentifier.AddEntityWithId(this);
                 }
             }

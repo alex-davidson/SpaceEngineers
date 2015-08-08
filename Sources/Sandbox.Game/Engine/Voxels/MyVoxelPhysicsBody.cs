@@ -1,4 +1,7 @@
-﻿using Havok;
+﻿using System.Collections.Concurrent;
+using System.IO;
+using System.Threading;
+using Havok;
 using Sandbox.Engine.Physics;
 using Sandbox.Engine.Utils;
 using Sandbox.Game.Entities;
@@ -7,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using VRage;
+using VRage.Library.Debugging;
 using VRage.Voxels;
 using VRageMath;
 using VRageRender;
@@ -97,6 +101,73 @@ namespace Sandbox.Engine.Voxels
             ProfilerShort.End();
         }
 
+        private class MeshInfo : LogEvent
+        {
+            public bool IsNull;
+            public int TrianglesCount;
+            public Vector3I Coord;
+            public int DurationMS;
+            private string Caller;
+
+            public MeshInfo(MyVoxelPhysicsBody mvpb,  MyIsoMesh mesh, Vector3I coord, Stopwatch sw) : base(mvpb)
+            {
+                Caller = new StackFrame(2).GetMethod().Name;
+                if(mesh == null) IsNull = true;
+                else TrianglesCount = mesh.TrianglesCount;
+                Coord = coord;
+                DurationMS = (int)sw.ElapsedMilliseconds;
+            }
+
+            protected override void WriteFields(TextWriter writer)
+            {
+                writer.Write(',');
+                writer.Write(IsNull);
+                writer.Write(',');
+                writer.Write(TrianglesCount);
+                writer.Write(',');
+                writer.Write(DurationMS);
+                writer.Write(',');
+                writer.Write(Coord.X);
+                writer.Write(',');
+                writer.Write(Coord.Y);
+                writer.Write(',');
+                writer.Write(Coord.Z);
+                writer.Write(',');
+                writer.Write(Caller);
+            }
+        }
+
+        public readonly Guid objectId = Guid.NewGuid();
+        
+        private abstract class LogEvent : ILogEvent
+        {
+            protected LogEvent(MyVoxelPhysicsBody mvpb)
+            {
+                Timestamp = DateTimeOffset.UtcNow;
+                ThreadId = Thread.CurrentThread.ManagedThreadId;
+                ObjectId = mvpb.objectId;
+            }
+
+            public DateTimeOffset Timestamp;
+            public int ThreadId;
+            public Guid ObjectId;
+
+            protected virtual void WriteFields(TextWriter writer)
+            {
+            }
+
+            public void Write(TextWriter writer)
+            {
+                writer.Write(Timestamp.ToString("s"));
+                writer.Write(',');
+                writer.Write(ThreadId);
+                writer.Write(',');
+                writer.Write(ObjectId);
+                WriteFields(writer);
+                writer.WriteLine();
+            }
+        }
+
         private void RequestShapeBlocking(int x, int y, int z, out HkBvCompressedMeshShape shape, out HkReferencePolicy refPolicy)
         {
             ProfilerShort.Begin("MyVoxelPhysicsBody.RequestShapeBlocking");
@@ -116,8 +187,8 @@ namespace Sandbox.Engine.Voxels
 
             ProfilerShort.Begin("Generating geometry");
             MyIsoMesh geometryData = CreateMesh(m_voxelMap.Storage, cellCoord.CoordInLod);
-            ProfilerShort.End();
 
+            ProfilerShort.End();
             if (!MyIsoMesh.IsEmpty(geometryData))
             {
                 ProfilerShort.Begin("Shape from geometry");
@@ -211,6 +282,7 @@ namespace Sandbox.Engine.Voxels
             UpdateRigidBodyShape();
 
             var nearby = m_nearbyEntities;
+            Logging.Text("UpdateAfterSimulation10: {0}  {1} nearby entities", objectId, nearby.Count);
 
             // Apply prediction based on movement of nearby entities.
             foreach (var entity in m_nearbyEntities)
@@ -245,12 +317,13 @@ namespace Sandbox.Engine.Voxels
                 var shape = (HkUniformGridShape)GetShape();// RigidBody.GetShape();
                 Debug.Assert(shape.Base.IsValid);
                 int requiredCellsCount = shape.GetMissingCellsInRange(ref min, ref max, m_cellsToGenerateBuffer);
-
+                
+                Logging.Text("requiredCellsCount: {0}  {1}", objectId, requiredCellsCount);
+                var jobCount = 0;
                 for (int i = 0; i < requiredCellsCount; ++i)
                 {
                     if (m_workTracker.Exists(m_cellsToGenerateBuffer[i]))
                         continue;
-
                     MyPrecalcJobPhysicsPrefetch.Start(new MyPrecalcJobPhysicsPrefetch.Args()
                     {
                         TargetPhysics = this,
@@ -258,7 +331,9 @@ namespace Sandbox.Engine.Voxels
                         GeometryCell = new MyCellCoord(0, m_cellsToGenerateBuffer[i]),
                         Storage = m_voxelMap.Storage,
                     });
+                    jobCount++;
                 }
+                Logging.Text("MyPrecalcJobPhysicsPrefetch.Start: {0}  {1} jobs", objectId, jobCount);
             }
             if (m_nearbyEntities.Count == 0 && RigidBody != null && MyFakes.ENABLE_VOXEL_PHYSICS_SHAPE_DISCARDING)
             {
@@ -335,6 +410,7 @@ namespace Sandbox.Engine.Voxels
 
         internal MyIsoMesh CreateMesh(IMyStorage storage, Vector3I coord)
         {
+            var sw = Stopwatch.StartNew();
             // mk:NOTE This method must be thread safe. Called from worker threads.
 
             coord += m_cellsOffset;
@@ -343,7 +419,10 @@ namespace Sandbox.Engine.Voxels
             // overlap to neighbor; introduces extra data but it makes logic for raycasts and collisions simpler (no need to check neighbor cells)
             min -= 1;
             max += 2;
-            return MyPrecalcComponent.IsoMesher.Precalc(storage, 0, min, max, false);
+            var mesh = MyPrecalcComponent.IsoMesher.Precalc(storage, 0, min, max, false);
+            sw.Stop();
+            Logging.Event(new MeshInfo(this, mesh, coord, sw));
+            return mesh;
         }
 
         internal HkBvCompressedMeshShape CreateShape(MyIsoMesh mesh)
@@ -428,6 +507,7 @@ namespace Sandbox.Engine.Voxels
         {
             if (ENABLE_AABB_PHANTOM)
             {
+                Logging.Text("ActivatePhantom: {0}", objectId);
                 var center = GetRigidBodyMatrix().Translation + m_voxelMap.SizeInMetresHalf;
                 var size = m_voxelMap.SizeInMetres;
                 size *= m_phantomExtend;
@@ -442,6 +522,7 @@ namespace Sandbox.Engine.Voxels
         {
             if (ENABLE_AABB_PHANTOM)
             {
+                Logging.Text("DeactivatePhantom: {0}", objectId);
                 MyTrace.Send(TraceWindow.Analytics, "RemovePhantom-before");
                 HavokWorld.RemovePhantom(m_aabbPhantom);
                 MyTrace.Send(TraceWindow.Analytics, "RemovePhantom-after");
@@ -458,6 +539,7 @@ namespace Sandbox.Engine.Voxels
 
             var grid = rb.UserObject as MyGridPhysics;
             var character = rb.UserObject as MyPhysicsBody;
+            var entityBase = rb.UserObject as MyEntityComponentBase;
             // I get both rigid bodies reported but they don't match, I will only track RB 1
             if (IsDynamicGrid(rb, grid) ||
                 IsCharacter(rb, character))
@@ -466,7 +548,19 @@ namespace Sandbox.Engine.Voxels
                 {
                     IMyEntity entity = grid == null ? character.Entity : grid.Entity;
                     Debug.Assert(!m_nearbyEntities.Contains(entity), "Entity added twice");
+                    Logging.Text("Add nearby entity: {0}   {1}", objectId, entity.EntityId);
                     m_nearbyEntities.Add(entity);
+                }
+            }
+            else if(entityBase != null)
+            {
+                if(entityBase.Entity != null)
+                {
+                    Logging.Text("Skip add nearby entity: {0}   {1}", objectId, entityBase.Entity.EntityId);
+                }
+                else
+                {
+                    Logging.Text("Skip add nearby SOMETHING: {0}   {1}", objectId, entityBase.ComponentTypeDebugString);
                 }
             }
         }
@@ -508,6 +602,7 @@ namespace Sandbox.Engine.Voxels
                     }
                     IMyEntity entity = grid == null ? character.Entity : grid.Entity;
                     Debug.Assert(m_nearbyEntities.Contains(entity), "Removing entity which was not added");
+                    Logging.Text("Remove nearby entity: {0}   {1}", objectId, entity.EntityId);
                     m_nearbyEntities.Remove(entity);
                 }
             }
